@@ -2,8 +2,10 @@ import { config, fields, collection } from '@keystatic/core';
 
 export default config({
   storage: {
-    kind: 'github',
-    repo: 'mohitraipr/NorthAI',
+    kind: 'cloud',
+  },
+  cloud: {
+    project: 'mohit-rai/northai',
   },
   collections: {
     posts: collection({
