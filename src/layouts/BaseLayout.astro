@@ -18,26 +18,28 @@ const { title, description = 'Insights on Product, Tech, and AI from North Partn
 </head>
 <body>
   <header class="site-header">
-    <a href="/" class="logo">NorthAI</a>
-    <nav>
-      <ul class="nav-links">
-        <li><a href="/">Blog</a></li>
-        <li><a href="https://www.northpartners.ai/" target="_blank">North Partners</a></li>
-        <li><a href="/keystatic">Admin</a></li>
-      </ul>
-    </nav>
+    <div class="header-inner">
+      <a href="/" class="logo">NorthAI</a>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="/">Blog</a></li>
+          <li><a href="https://www.northpartners.ai/" target="_blank" rel="noopener">North Partners</a></li>
+          <li><a href="/keystatic">Admin</a></li>
+        </ul>
+      </nav>
+    </div>
   </header>
   <main><slot /></main>
   <footer class="site-footer">
     <p>&copy; {new Date().getFullYear()} NorthAI. All rights reserved.</p>
   </footer>
-  <button class="dark-toggle" id="darkToggle">🌙</button>
+  <button class="dark-toggle" id="darkToggle" aria-label="Toggle dark mode">🌙</button>
   <script is:inline>
-    const t=document.getElementById('darkToggle'),b=document.body;
-    if(localStorage.getItem('darkMode')==='enabled'){b.classList.add('dark-mode');t.textContent='☀️'}
-    t.addEventListener('click',()=>{b.classList.toggle('dark-mode');
-      if(b.classList.contains('dark-mode')){localStorage.setItem('darkMode','enabled');t.textContent='☀️'}
-      else{localStorage.setItem('darkMode','disabled');t.textContent='🌙'}});
+    const t=document.getElementById('darkToggle'),h=document.documentElement;
+    if(localStorage.getItem('theme')==='dark'){h.classList.add('dark');t.textContent='☀️'}
+    t.addEventListener('click',()=>{h.classList.toggle('dark');
+      if(h.classList.contains('dark')){localStorage.setItem('theme','dark');t.textContent='☀️'}
+      else{localStorage.setItem('theme','light');t.textContent='🌙'}});
   </script>
 </body>
 </html>

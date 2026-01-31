@@ -1,68 +1,97 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { createReader } from '@keystatic/core/reader';
-import keystaticConfig from '../../../keystatic.config';
 import Markdoc from '@markdoc/markdoc';
+import fs from 'node:fs';
+import path from 'node:path';
+import yaml from 'js-yaml';
 
 export const prerender = true;
 
 export async function getStaticPaths() {
-  const reader = createReader(process.cwd(), keystaticConfig);
-  const posts = await reader.collections.posts.all();
-  return posts.map((post) => ({ params: { slug: post.slug }, props: { post } }));
+  const postsDir = path.join(process.cwd(), 'src/content/posts');
+  const postFolders = fs.existsSync(postsDir)
+    ? fs.readdirSync(postsDir).filter(f => fs.statSync(path.join(postsDir, f)).isDirectory())
+    : [];
+
+  return postFolders.map(slug => {
+    const yamlPath = path.join(postsDir, slug, 'index.yaml');
+    const mdocPath = path.join(postsDir, slug, 'index.mdoc');
+
+    let data: Record<string, any> = {};
+    let content = '';
+
+    if (fs.existsSync(yamlPath)) {
+      data = yaml.load(fs.readFileSync(yamlPath, 'utf-8')) as Record<string, any>;
+    }
+    if (fs.existsSync(mdocPath)) {
+      content = fs.readFileSync(mdocPath, 'utf-8');
+    }
+
+    return {
+      params: { slug },
+      props: { slug, ...data, content }
+    };
+  }).filter(p => p.props.title);
 }
 
-const { post } = Astro.props;
-const content = await post.entry.content();
+interface Props {
+  slug: string;
+  title: string;
+  description?: string;
+  publishedDate?: string;
+  author?: string;
+  coverImage?: string;
+  tags?: string[];
+  content: string;
+}
+
+const { slug, title, description, publishedDate, author, coverImage, tags, content } = Astro.props as Props;
+
 const html = Markdoc.renderers.html(Markdoc.transform(Markdoc.parse(content)));
 const words = content.replace(/[#*`\[\]]/g, '').split(/\s+/).length;
 const readingTime = Math.ceil(words / 200);
 
-function formatDate(d: string | null) {
+function formatDate(d: string | undefined) {
   return d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 }
 
 const postUrl = Astro.url.href;
 const encodedUrl = encodeURIComponent(postUrl);
-const encodedTitle = encodeURIComponent(post.entry.title);
+const encodedTitle = encodeURIComponent(title);
 ---
-<BaseLayout title={post.entry.title} description={post.entry.description || ''}>
+<BaseLayout title={title} description={description || ''}>
   <div class="reading-progress" id="rp"></div>
-  <article>
+  <article class="container">
     <header class="post-header">
-      <h1 class="post-title">{post.entry.title}</h1>
+      <h1 class="post-title">{title}</h1>
       <div class="post-meta">
-        <div class="author-avatar">{post.entry.author?.charAt(0) || 'N'}</div>
+        <div class="author-avatar">{author?.charAt(0) || 'N'}</div>
         <div class="meta-text">
-          <span class="author-name">{post.entry.author}</span>
+          <span class="author-name">{author || 'NorthAI Team'}</span>
           <div class="post-details">
-            <span>{formatDate(post.entry.publishedDate)}</span>
+            <span>{formatDate(publishedDate)}</span>
             <span>{readingTime} min read</span>
           </div>
         </div>
       </div>
     </header>
-    {post.entry.coverImage && <div class="post-cover"><img src={post.entry.coverImage} alt={post.entry.title} /></div>}
+    {coverImage && <div class="post-cover"><img src={coverImage} alt={title} /></div>}
     <div class="post-content" set:html={html} />
-    {post.entry.tags && post.entry.tags.length > 0 && (
-      <div class="container">
-        <div class="post-tags">
-          {post.entry.tags.map((tag) => <span class="tag">{tag}</span>)}
-        </div>
+    {tags && tags.length > 0 && (
+      <div class="post-tags">
+        {tags.map((tag) => <span class="tag">{tag}</span>)}
       </div>
     )}
-    <div class="container">
-      <div class="share-buttons">
-        <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`} class="share-button linkedin" target="_blank" rel="noopener">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-          LinkedIn
-        </a>
-        <a href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`} class="share-button twitter" target="_blank" rel="noopener">
-          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          X
-        </a>
-        <button class="share-button copy" id="copyBtn" data-url={postUrl}>Copy Link</button>
-      </div>
+    <div class="share-buttons">
+      <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`} class="share-button linkedin" target="_blank" rel="noopener">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        LinkedIn
+      </a>
+      <a href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`} class="share-button twitter" target="_blank" rel="noopener">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        X
+      </a>
+      <button class="share-button copy" id="copyBtn" data-url={postUrl}>Copy Link</button>
     </div>
   </article>
   <script is:inline>

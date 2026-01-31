@@ -1,36 +1,75 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { createReader } from '@keystatic/core/reader';
-import keystaticConfig from '../../keystatic.config';
+import fs from 'node:fs';
+import path from 'node:path';
+import yaml from 'js-yaml';
 
-const reader = createReader(process.cwd(), keystaticConfig);
-const posts = await reader.collections.posts.all();
-const sortedPosts = posts.sort((a, b) => new Date(b.entry.publishedDate || 0).getTime() - new Date(a.entry.publishedDate || 0).getTime());
+export const prerender = true;
 
-function formatDate(d: string | null) {
+// Read posts from filesystem
+const postsDir = path.join(process.cwd(), 'src/content/posts');
+const postFolders = fs.existsSync(postsDir)
+  ? fs.readdirSync(postsDir).filter(f => fs.statSync(path.join(postsDir, f)).isDirectory())
+  : [];
+
+const posts = postFolders.map(slug => {
+  const yamlPath = path.join(postsDir, slug, 'index.yaml');
+  if (fs.existsSync(yamlPath)) {
+    const data = yaml.load(fs.readFileSync(yamlPath, 'utf-8')) as Record<string, any>;
+    return { slug, ...data };
+  }
+  return null;
+}).filter(Boolean) as Array<{slug: string; title: string; description?: string; publishedDate?: string; author?: string}>;
+
+const sortedPosts = posts.sort((a, b) =>
+  new Date(b.publishedDate || 0).getTime() - new Date(a.publishedDate || 0).getTime()
+);
+
+function formatDate(d: string | undefined) {
   return d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 }
 ---
 <BaseLayout title="Blog">
   <div class="container">
-    <section class="posts-list">
+    <div class="page-header">
+      <h1>Blog</h1>
+      <p>Insights on Product, Tech, and AI</p>
+    </div>
+
+    <div class="search-box">
+      <input type="text" class="search-input" placeholder="Search posts..." id="searchInput" />
+    </div>
+
+    <section class="posts-list" id="postsList">
       {sortedPosts.length === 0 ? (
-        <div style="text-align:center;padding:60px 20px;">
+        <div class="empty-state">
           <h2>No posts yet</h2>
-          <p style="color:#757575;">Visit <a href="/keystatic">/keystatic</a> to create your first post.</p>
+          <p>Visit <a href="/keystatic">/keystatic</a> to create your first post.</p>
         </div>
       ) : (
         sortedPosts.map((post) => (
-          <article class="post-card">
-            <h2 class="post-card-title"><a href={`/posts/${post.slug}`}>{post.entry.title}</a></h2>
+          <a href={`/posts/${post.slug}`} class="post-card" data-title={post.title.toLowerCase()} data-desc={(post.description || '').toLowerCase()}>
+            <h2 class="post-card-title">{post.title}</h2>
             <div class="post-card-meta">
-              <span>{post.entry.author}</span>
-              <span>{formatDate(post.entry.publishedDate)}</span>
+              <span>{post.author || 'NorthAI Team'}</span>
+              <span>{formatDate(post.publishedDate)}</span>
             </div>
-            {post.entry.description && <p class="post-card-description">{post.entry.description}</p>}
-          </article>
+            {post.description && <p class="post-card-description">{post.description}</p>}
+          </a>
         ))
       )}
     </section>
   </div>
+
+  <script is:inline>
+    document.getElementById('searchInput')?.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase();
+      document.querySelectorAll('.post-card').forEach(card => {
+        const title = card.dataset.title || '';
+        const desc = card.dataset.desc || '';
+        const match = title.includes(query) || desc.includes(query);
+        card.style.display = match ? 'block' : 'none';
+      });
+    });
+  </script>
 </BaseLayout>
