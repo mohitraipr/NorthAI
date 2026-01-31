@@ -6,20 +6,34 @@ import yaml from 'js-yaml';
 
 export const prerender = true;
 
-// Read posts from filesystem
+// Read posts from filesystem - supports both folder and single-file formats
 const postsDir = path.join(process.cwd(), 'src/content/posts');
-const postFolders = fs.existsSync(postsDir)
-  ? fs.readdirSync(postsDir).filter(f => fs.statSync(path.join(postsDir, f)).isDirectory())
-  : [];
+const entries = fs.existsSync(postsDir) ? fs.readdirSync(postsDir) : [];
 
-const posts = postFolders.map(slug => {
-  const yamlPath = path.join(postsDir, slug, 'index.yaml');
-  if (fs.existsSync(yamlPath)) {
-    const data = yaml.load(fs.readFileSync(yamlPath, 'utf-8')) as Record<string, any>;
-    return { slug, ...data };
+const posts: Array<{slug: string; title: string; description?: string; publishedDate?: string; author?: string}> = [];
+
+for (const entry of entries) {
+  const fullPath = path.join(postsDir, entry);
+  const stat = fs.statSync(fullPath);
+
+  if (stat.isDirectory()) {
+    // Folder-based post: slug/index.yaml
+    const yamlPath = path.join(fullPath, 'index.yaml');
+    if (fs.existsSync(yamlPath)) {
+      const data = yaml.load(fs.readFileSync(yamlPath, 'utf-8')) as Record<string, any>;
+      posts.push({ slug: entry, ...data });
+    }
+  } else if (entry.endsWith('.mdoc')) {
+    // Single-file post: slug.mdoc with frontmatter
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (frontmatterMatch) {
+      const data = yaml.load(frontmatterMatch[1]) as Record<string, any>;
+      const slug = entry.replace('.mdoc', '');
+      posts.push({ slug, ...data });
+    }
   }
-  return null;
-}).filter(Boolean) as Array<{slug: string; title: string; description?: string; publishedDate?: string; author?: string}>;
+}
 
 const sortedPosts = posts.sort((a, b) =>
   new Date(b.publishedDate || 0).getTime() - new Date(a.publishedDate || 0).getTime()
