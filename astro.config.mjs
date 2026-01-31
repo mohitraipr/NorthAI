@@ -5,6 +5,7 @@ import keystatic from '@keystatic/astro';
 import vercel from '@astrojs/vercel';
 
 export default defineConfig({
+  site: 'https://north-ai-blush.vercel.app',
   integrations: [react(), keystatic()],
   output: 'server',
   adapter: vercel(),

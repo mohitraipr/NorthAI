@@ -55,7 +55,7 @@ function formatDate(d: string | undefined) {
   return d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 }
 
-const postUrl = Astro.url.href;
+const postUrl = new URL(Astro.url.pathname, Astro.site || 'https://north-ai-blush.vercel.app').href;
 const encodedUrl = encodeURIComponent(postUrl);
 const encodedTitle = encodeURIComponent(title);
 ---
